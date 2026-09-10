@@ -217,3 +217,24 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 - **Adversarial safety pass:** prompt injection in tweets, fake compensation
   claims, impersonation.
 - **Transfer test:** run the same pipeline on SouthwestAir with no code changes.
+
+## 8. Credits — what I borrowed
+
+- **Data:** *Customer Support on Twitter* (Kaggle, `thoughtvector/customer-support-on-twitter`), CC0.
+- **Models:** Groq-hosted `openai/gpt-oss-120b` & `-20b` (Apache-2.0) for
+  classify/draft/route; `qwen/qwen3.8-27b` & `3.6-27b` for the judge;
+  `BAAI/bge-small-en-v1.5` (MIT) run locally for embeddings.
+- **Libraries:** pandas, scikit-learn (metrics: `f1_score`, `cohen_kappa_score`,
+  `confusion_matrix`), FAISS (`IndexFlatIP`), sentence-transformers, scipy
+  (`spearmanr`), langid, rouge-score, groq SDK.
+- **Methods:** LLM-as-judge with a fixed rubric and human-agreement validation
+  follows the now-standard pattern from the MT-Bench / "LLM-as-a-judge" line of
+  work (Zheng et al., 2023); quadratic-weighted κ for ordinal agreement is the
+  Cohen (1968) weighting. Thread reconstruction from `in_response_to_tweet_id` /
+  `response_tweet_id` is the approach described in the dataset's own Kaggle
+  discussion.
+- **AI assistance:** built with Claude Code (Sonnet) as a pair-programmer. The
+  intent taxonomy, the routing rubric (`src/golden/corrections.py`), the golden
+  labels and the judge-validation human scores (`src/eval/judge_human_scores.py`)
+  were produced by an LLM pre-pass followed by a documented human review; the
+  author owns the final labels and can explain and modify any part of the code.
