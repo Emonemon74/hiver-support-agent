@@ -25,8 +25,10 @@ def _get_client() -> Groq:
     return _client
 
 
-def _cache_key(model: str, messages: list[dict], json_mode: bool, temperature: float) -> Path:
-    blob = json.dumps([model, messages, json_mode, temperature], sort_keys=True)
+def _cache_key(
+    model: str, messages: list[dict], json_mode: bool, temperature: float, effort: str
+) -> Path:
+    blob = json.dumps([model, messages, json_mode, temperature, effort], sort_keys=True)
     h = hashlib.sha256(blob.encode()).hexdigest()[:24]
     return _CACHE_DIR / f"{h}.json"
 
@@ -37,15 +39,25 @@ def chat(
     model: str = LLM_MODEL,
     json_mode: bool = False,
     temperature: float = 0.0,
-    max_tokens: int = 700,
+    max_tokens: int = 1400,
+    reasoning_effort: str = "low",
     use_cache: bool = True,
     max_retries: int = 6,
 ) -> str:
-    ck = _cache_key(model, messages, json_mode, temperature)
+    ck = _cache_key(model, messages, json_mode, temperature, reasoning_effort)
     if use_cache and ck.exists():
         return json.loads(ck.read_text())["content"]
 
-    kwargs = dict(model=model, messages=messages, temperature=temperature, max_tokens=max_tokens)
+    # gpt-oss / qwen3 on Groq are reasoning models: the chain-of-thought is billed
+    # against max_tokens but returned in a separate `reasoning` field, so budget
+    # generously and keep effort low for latency/quota.
+    kwargs = dict(
+        model=model,
+        messages=messages,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        reasoning_effort=reasoning_effort,
+    )
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
 

@@ -12,11 +12,12 @@ REPORTS = ROOT / "reports"
 
 load_dotenv(ROOT / ".env")
 
-# --- LLM: Groq free tier (OpenAI-compatible). Judge is a different model lineage
-#     than the drafter to reduce self-preference bias. ---
+# --- LLM: Groq free tier. Drafter = gpt-oss-120b (strongest available here);
+#     judge = qwen3.8-27b, a different lineage, to reduce self-preference bias.
+#     Both are reasoning models (see src/llm.py). ---
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
-JUDGE_MODEL = os.getenv("JUDGE_MODEL", "openai/gpt-oss-120b")
+LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "qwen/qwen3.8-27b")
 
 # --- Embeddings: local sentence-transformers, no API key, deterministic ---
 EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
