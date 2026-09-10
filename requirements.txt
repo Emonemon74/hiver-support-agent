@@ -1,9 +1,8 @@
 # Core
 pandas>=2.2
-pyarrow>=16
+pyarrow>=16          # pandas parquet engine
 numpy>=1.26
 python-dotenv>=1.0
-rich>=13
 tqdm>=4.66
 
 # LLM (Groq free tier) + local embeddings
@@ -16,7 +15,6 @@ faiss-cpu>=1.8
 langid>=1.1.6
 
 # Eval
-rouge-score>=0.1.2
 scipy>=1.11
 
 # Data fetch

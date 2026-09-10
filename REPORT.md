@@ -141,8 +141,9 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
    price-gouging?"* (an opinion) both trip `E-ACCOUNT`/`E-MONEY`. Keyword rules are
    still too blunt; the fix is a learned classifier over the signal vector.
 
-2. **Draft invents specifics — phone numbers, policy, compensation (≈18%
-   flagged, ≈8–10% hard fabrications).** e.g. a fabricated *"888-750-3284"* support
+2. **Draft invents specifics — phone numbers, policy, compensation (≈18% of
+   drafts flagged; on inspection ~half are real fabrications, the rest the
+   standard DM-ask).** e.g. a fabricated *"888-750-3284"* support
    line; *"Gold members don't qualify for complimentary upgrades — only Platinum
    Elite"* (factually wrong for Delta); *"Enjoy those extra SkyMiles!"* (unbacked
    compensation); a copied fake agent signature *"\*ABN <URL>"* pulled from a
@@ -236,7 +237,7 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
   `BAAI/bge-small-en-v1.5` (MIT) run locally for embeddings.
 - **Libraries:** pandas, scikit-learn (metrics: `f1_score`, `cohen_kappa_score`,
   `confusion_matrix`), FAISS (`IndexFlatIP`), sentence-transformers, scipy
-  (`spearmanr`), langid, rouge-score, groq SDK.
+  (`spearmanr`), langid, groq SDK.
 - **Methods:** LLM-as-judge with a fixed rubric and human-agreement validation
   follows the now-standard pattern from the MT-Bench / "LLM-as-a-judge" line of
   work (Zheng et al., 2023); quadratic-weighted κ for ordinal agreement is the
