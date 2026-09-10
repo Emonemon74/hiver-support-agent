@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.ruff_cache/
+.pytest_cache/
+.DS_Store
+
+# Data: keep only tiny committed samples + the golden set
+data/*
+!data/samples/
+!data/golden.jsonl
+!data/.gitkeep
+
+# Large build artifacts
+*.parquet
+*.faiss
+*.npy
