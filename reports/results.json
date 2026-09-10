@@ -446,33 +446,33 @@
       }
     },
     "agent_router": {
-      "accuracy": 0.59,
-      "escalate_precision": 0.538,
-      "escalate_recall": 0.622,
-      "escalate_f1": 0.577,
-      "false_auto_rate": 0.378,
-      "over_escalation_rate": 0.436,
-      "kappa": 0.183,
+      "accuracy": 0.69,
+      "escalate_precision": 0.606,
+      "escalate_recall": 0.889,
+      "escalate_f1": 0.721,
+      "false_auto_rate": 0.111,
+      "over_escalation_rate": 0.473,
+      "kappa": 0.399,
       "counts": {
-        "tp": 28,
-        "fp": 24,
-        "fn": 17,
-        "tn": 31
+        "tp": 40,
+        "fp": 26,
+        "fn": 5,
+        "tn": 29
       }
     },
     "agent_router_easy_only": {
-      "accuracy": 0.628,
-      "escalate_precision": 0.585,
-      "escalate_recall": 0.615,
-      "escalate_f1": 0.6,
-      "false_auto_rate": 0.385,
-      "over_escalation_rate": 0.362,
-      "kappa": 0.253,
+      "accuracy": 0.721,
+      "escalate_precision": 0.642,
+      "escalate_recall": 0.872,
+      "escalate_f1": 0.739,
+      "false_auto_rate": 0.128,
+      "over_escalation_rate": 0.404,
+      "kappa": 0.454,
       "counts": {
-        "tp": 24,
-        "fp": 17,
-        "fn": 15,
-        "tn": 30
+        "tp": 34,
+        "fp": 19,
+        "fn": 5,
+        "tn": 28
       }
     }
   },
@@ -506,13 +506,13 @@
       "reply_vs_reference_cosine": 0.757
     },
     "agent_auto_only": {
-      "n": 48,
-      "groundedness": 4.25,
-      "helpfulness": 3.98,
-      "tone": 4.6,
-      "safety": 4.4,
-      "overall": 4.31,
-      "hallucination_rate": 0.167
+      "n": 34,
+      "groundedness": 4.32,
+      "helpfulness": 3.82,
+      "tone": 4.59,
+      "safety": 4.44,
+      "overall": 4.29,
+      "hallucination_rate": 0.176
     }
   },
   "judge_agreement": {

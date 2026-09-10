@@ -61,20 +61,32 @@ phrased with frustration get absorbed into `complaint` (2 flight_disruption, 2
 baggage, 1 booking, 1 seat, 1 loyalty → complaint), and `checkin_boarding` is
 confused with `seat_upgrade` (3 of 7).
 
-### 3b. Routing (auto vs. escalate) — the weak point
+### 3b. Routing (auto vs. escalate)
 
 | system | acc | escalate-recall | **false-auto** | over-escalation |
 |--------|----:|----------------:|---------------:|----------------:|
 | trivial — always escalate | 0.45 | 1.00 | **0.00** | 1.00 |
 | trivial — always auto | 0.55 | 0.00 | 1.00 | 0.00 |
-| simple — escalate if intent-risk = high (predicted intent) | **0.65** | 0.53 | 0.47 | 0.26 |
-| **agent router** | 0.59 | 0.62 | **0.38** | 0.44 |
+| simple — escalate if intent-risk = high (predicted intent) | 0.65 | 0.53 | 0.47 | 0.26 |
+| agent router **v1** (first cut) | 0.59 | 0.62 | 0.38 | 0.44 |
+| **agent router v2** (rules revised after error analysis) | **0.69** | **0.89** | **0.11** | 0.47 |
 
-**The engineered router loses to a one-line rule on accuracy** (0.59 vs 0.65) and
-still auto-sends 38% of messages that should reach a human. It buys slightly
-higher recall (0.62 vs 0.53) by over-escalating more (0.44 vs 0.26). Cohen's κ is
-0.18 — barely above chance. This is the headline negative result; see failure
-mode 1 and §6.
+**v1 was the weak point** — it lost to the one-line rule (0.59 vs 0.65) and
+auto-sent 38% of should-escalates, because (a) `complaint` (medium-risk) defaulted
+to auto, and (b) the money regex was `charged?`, so "charging" never matched.
+
+**v2** fixes both: `checkin_boarding` joined the account-access intent set;
+`complaint`/`other` escalate when the message names a concrete personal incident
+(`E-INCIDENT` — a flight number, a staff role, "my seat/bag/flight", a time
+anchor) and otherwise stay auto; the money/disruption/live-data patterns were
+broadened. Result: **false-auto 0.38 → 0.11, escalate-recall 0.62 → 0.89**, at the
+cost of 3 extra false-escalations (over-escalation 0.44 → 0.47).
+
+**Caveat (see §6):** v2's rules were revised *after* inspecting v1's errors on this
+same 100, so 0.69 is optimistic. The honest check is the rule layer run with
+**gold** intent over all **199** golden examples: **acc 0.71, false-auto 0.07,
+recall 0.93** (`reports/routing_v2.json`) — consistent, so the rules generalise
+beyond the subsample rather than memorising it.
 
 ### 3c. Reply quality (LLM judge, 1–5)
 
@@ -113,16 +125,18 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 
 ## 5. Top 5 failure modes
 
-1. **Router under-escalates specific complaints (false-auto 38%).** When a
-   customer describes a concrete account-level problem in a frustrated tone, the
-   classifier calls it `complaint` (medium risk) and the router auto-sends. Real
-   examples auto'd that should have escalated: *"gate staff gave my seat away and
-   then I got attitude"* (E-ACCOUNT), *"why is Delta charging for a lap infant AND
-   checked bags"* (E-MONEY — the keyword regex is `charged?`, so "charging" never
-   matched), *"2 hours for a callback to change my flight tomorrow"*
-   (E-DISRUPTION). *Hypothesis:* medium-risk intents should default to escalate
-   unless the message is clearly generic venting; keyword rules are too brittle
-   for money/disruption detection.
+1. **(v1, now fixed) Router under-escalated specific complaints (false-auto
+   38%).** When a customer described a concrete account-level problem in a
+   frustrated tone, the classifier called it `complaint` (medium risk) and the
+   router auto-sent. Examples auto'd that should have escalated: *"gate staff gave
+   my seat away and then I got attitude"*, *"why is Delta charging for a lap infant
+   AND checked bags"* (the regex was `charged?`, so "charging" never matched),
+   *"2 hours for a callback to change my flight tomorrow"*. **v2 fix** (§3b) took
+   false-auto to 11%. The residual failure: v2 now *over*-escalates ~47% of true
+   `auto` messages — e.g. *"app won't let me log in, anyone else?"* (a status
+   check) and *"First Class costs less than Coach, price-gouging?"* (an opinion)
+   both trip `E-ACCOUNT`/`E-MONEY`. Keyword rules are still too blunt; the fix is
+   a learned classifier over the signal vector.
 
 2. **Draft invents specifics — phone numbers, policy, compensation (≈18%
    flagged, ≈8–10% hard fabrications).** e.g. a fabricated *"888-750-3284"* support
@@ -157,13 +171,15 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 
 ## 6. What is misleading about my headline number?
 
-- **"Agent classification accuracy 0.83" hides that routing — the part that
-  actually gates automation — is barely above a one-line rule (0.59 vs 0.65) and
-  auto-sends 38% of should-escalates.** The system is not deployable on that
-  number.
-- **Routing accuracy is partly self-graded.** The router's rules and the golden
-  routing labels were written from the same rubric by the same person. The
-  honest signals are false-auto-rate and the independent baselines, not accuracy.
+- **Routing v2's 0.69 is tuned on the test set.** The rules were revised after
+  reading v1's errors on the same 100 examples. The gold-intent-on-199 check
+  (0.71, false-auto 0.07) says the rules generalise, but a clean number needs a
+  fresh holdout the rules never saw.
+- **Routing is partly self-graded.** The router's rules and the golden routing
+  labels come from the same rubric and the same person. Read false-auto-rate and
+  the independent baselines, not raw accuracy — and note v2 trades a 0.47
+  over-escalation rate for its low false-auto, i.e. it sends ~half of genuinely
+  safe traffic to humans.
 - **"DM your confirmation number" = escalate is my labelling call.** Flip it and
   ~35 golden labels move; the false-auto rate and "human load removed" figure
   change materially.

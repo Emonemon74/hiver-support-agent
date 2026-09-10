@@ -36,9 +36,10 @@ at 200k tokens/day/model, which is why the eval runs on a 100-example subsample;
 see `data/eval_subset.json` and REPORT.md §top).
 
 **Headline:** intent classification **0.83 acc / 0.79 macro-F1** (vs 0.47 kNN);
-routing **0.59 acc, 0.38 false-auto** — *worse than a one-line risk rule*, the
-main finding; reply quality **4.13/5** LLM-judge (vs 3.73 nearest-neighbour),
-judge↔human pooled κ **0.49**.
+routing **0.69 acc, 0.11 false-auto, 0.89 escalate-recall** (v2, after error
+analysis — v1 was 0.59/0.38 and lost to a one-line rule; see REPORT.md §3b);
+reply quality **4.13/5** LLM-judge (vs 3.73 nearest-neighbour), judge↔human
+pooled κ **0.49**.
 
 ## Status
 
