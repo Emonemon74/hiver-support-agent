@@ -12,26 +12,28 @@ REPORTS = ROOT / "reports"
 
 load_dotenv(ROOT / ".env")
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "gpt-4o-mini")
-JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gpt-4o")
-EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+# --- LLM: Groq free tier (OpenAI-compatible). Judge is a different model lineage
+#     than the drafter to reduce self-preference bias. ---
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+JUDGE_MODEL = os.getenv("JUDGE_MODEL", "openai/gpt-oss-120b")
+
+# --- Embeddings: local sentence-transformers, no API key, deterministic ---
+EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
+
 BRAND = os.getenv("BRAND", "")
 
-# Raw dataset location (twcs.csv from the Kaggle "Customer Support on Twitter" set)
 RAW_CSV = DATA / "twcs.csv"
-
-# Reproducibility
 SEED = 13
 
-# Subsample sizes (kept small so the pipeline runs in <15 min)
 CORPUS_THREADS = 6000
 EVAL_HOLDOUT_THREADS = 1200
 
 
-def require_openai() -> str:
-    if not OPENAI_API_KEY:
+def require_llm() -> str:
+    if not GROQ_API_KEY:
         raise RuntimeError(
-            "OPENAI_API_KEY is not set. Copy .env.example to .env and fill it in."
+            "GROQ_API_KEY is not set. Get a free key at https://console.groq.com "
+            "and add it to .env"
         )
-    return OPENAI_API_KEY
+    return GROQ_API_KEY

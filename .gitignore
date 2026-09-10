@@ -16,3 +16,6 @@ data/*
 *.parquet
 *.faiss
 *.npy
+
+# local caches
+data/.llm_cache/

@@ -6,8 +6,9 @@ python-dotenv>=1.0
 rich>=13
 tqdm>=4.66
 
-# LLM + embeddings
-openai>=1.40
+# LLM (Groq free tier) + local embeddings
+groq>=0.11
+sentence-transformers>=3.0
 
 # Retrieval / ML
 scikit-learn>=1.5

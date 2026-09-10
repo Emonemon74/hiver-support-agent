@@ -18,7 +18,8 @@ uv venv --python 3.11 && source .venv/bin/activate
 make install
 
 # 2. Secrets
-cp .env.example .env      # add OPENAI_API_KEY (+ Kaggle creds, or download manually)
+cp .env.example .env      # add GROQ_API_KEY (free, no card: https://console.groq.com)
+                          # embeddings run locally — no key needed
 
 # 3. Data  (Kaggle API, or drop twcs.csv into ./data/ yourself)
 make data
@@ -33,9 +34,9 @@ make eval         # runs baselines + agent + LLM-judge, writes reports/results.j
 | Phase | State |
 |-------|-------|
 | 1. Env + skeleton | done |
-| 2. Brand profiling | next |
-| 3. Dataset + intent taxonomy | |
-| 4. Golden eval set (150–250) | |
+| 2. Brand profiling → **Delta** | done |
+| 3. Dataset + intent taxonomy | done |
+| 4. Golden eval set (150–250) | next |
 | 5. Agent pipeline | |
 | 6. Baselines + eval harness + judge validation | |
 | 7. Report + decision log | |
@@ -48,6 +49,9 @@ src/
   get_data.py        fetch twcs.csv
   profile_brands.py  thread reconstruction + per-brand metrics  (Phase 2)
   build_dataset.py   brand filter, clean, subsample             (Phase 3)
+  llm.py             Groq chat wrapper (JSON mode, retry, cache)
+  embed.py           local sentence-transformers + FAISS
+  intents.py         the 8-intent taxonomy + router risk classes
   agent/             classify / retrieve / draft / route        (Phase 5)
   eval/              metrics + LLM-judge + judge validation      (Phase 6)
 data/                git-ignored except data/samples/ and data/golden.jsonl
