@@ -1,0 +1,3 @@
+- Phase 2: brand = **Delta** (26k threads, 22%% deflection, 96%% English)
+- Phase 3: 24,860 clean EN threads -> corpus 6,000 / holdout 1,200 (time-split, no leakage)
+- Intent taxonomy: 8 intents + other (see INTENTS.md)
