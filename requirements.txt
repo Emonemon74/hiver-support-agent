@@ -17,6 +17,7 @@ langid>=1.1.6
 
 # Eval
 rouge-score>=0.1.2
+scipy>=1.11
 
 # Data fetch
 kaggle>=1.6
