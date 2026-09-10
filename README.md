@@ -24,10 +24,21 @@ cp .env.example .env      # add GROQ_API_KEY (free, no card: https://console.gro
 # 3. Data  (Kaggle API, or drop twcs.csv into ./data/ yourself)
 make data
 
-# 4. Pipeline + evaluation on the committed subsample
-make dataset      # filter to the chosen brand, build corpus + eval holdout
-make eval         # runs baselines + agent + LLM-judge, writes reports/results.json
+# 4. Pipeline + evaluation
+make dataset      # filter to Delta, build corpus + eval holdout (~2 min)
+make eval         # baselines + agent + LLM-judge -> reports/results.json + tables
 ```
+
+`make eval` reuses the committed caches (`data/agent_outputs.jsonl`,
+`data/judge_scores.jsonl`) and prints in seconds. Deleting them re-runs the
+agent + judge from scratch (~50 min, and needs Groq quota — the free tier caps
+at 200k tokens/day/model, which is why the eval runs on a 100-example subsample;
+see `data/eval_subset.json` and REPORT.md §top).
+
+**Headline:** intent classification **0.83 acc / 0.79 macro-F1** (vs 0.47 kNN);
+routing **0.59 acc, 0.38 false-auto** — *worse than a one-line risk rule*, the
+main finding; reply quality **4.13/5** LLM-judge (vs 3.73 nearest-neighbour),
+judge↔human pooled κ **0.49**.
 
 ## Status
 
@@ -36,10 +47,10 @@ make eval         # runs baselines + agent + LLM-judge, writes reports/results.j
 | 1. Env + skeleton | done |
 | 2. Brand profiling → **Delta** | done |
 | 3. Dataset + intent taxonomy | done |
-| 4. Golden eval set (150–250) | next |
-| 5. Agent pipeline | |
-| 6. Baselines + eval harness + judge validation | |
-| 7. Report + decision log | |
+| 4. Golden eval set (199, hand-labelled) | done |
+| 5. Agent pipeline (classify/retrieve/draft/route) | done |
+| 6. Baselines + eval harness + judge validation | done |
+| 7. Report + decision log | done — `REPORT.md`, `DECISIONS.md` |
 
 ## Layout
 

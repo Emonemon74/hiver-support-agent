@@ -20,3 +20,7 @@ data/*
 # local caches
 data/.llm_cache/
 !data/golden_prelabel.jsonl
+!data/eval_subset.json
+!data/agent_outputs.jsonl
+!data/judge_scores.jsonl
+!data/judge_human_sheet.jsonl

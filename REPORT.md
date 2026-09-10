@@ -1,46 +1,49 @@
 # Delta Twitter Support Agent — Report
 
-<!-- Numbers are filled from reports/results.json + reports/judge_agreement.json.
-     Placeholders look like {{like_this}} until run_all.py has been run. -->
+All numbers are from `reports/results.json` and `reports/judge_agreement.json`,
+computed on a **100-example stratified subsample** of the 199-example golden set
+(the free Groq tier caps you at 200k tokens/day/model; running the full agent +
+judge needs ~1.2M). The subsample keeps every intent and the 55/45 auto/escalate
+split; `data/eval_subset.json` lists the ids.
 
 ## 1. Problem framing
 
-**Brand:** @Delta (US airline). **Task:** for an incoming customer tweet — (1)
-classify intent, (2) draft a public reply grounded in how Delta has historically
-answered similar tweets, (3) decide auto-send vs. escalate to a human, with a
-reason.
+**Brand:** @Delta. **Task:** for an incoming customer tweet — (1) classify intent,
+(2) draft a public reply grounded in how Delta historically answered similar
+tweets, (3) decide auto-send vs. escalate, with a reason.
 
 **What "good" means here.** Delta's support Twitter is a *triage and holding*
-channel, not a resolution channel — most substantive fixes happen in DMs with
-account access. So a good agent:
-- never auto-sends something that could mislead a customer or commit Delta to a
-  policy/refund it wouldn't honour (safety first);
-- handles the genuinely safe traffic without a human — compliments, general
-  policy questions, feedback acknowledgement (that's most of the volume);
-- for everything else, escalates *with a specific reason* a human can act on.
+channel — the substantive fixes happen in DMs with account access. So a good
+agent, in priority order:
+1. never auto-sends something that misleads a customer or commits Delta to a
+   policy / refund / compensation it wouldn't honour;
+2. clears the genuinely safe traffic without a human — compliments, general
+   policy questions, feedback acknowledgement (that is most of the volume);
+3. escalates everything else *with a specific, actionable reason*.
 
-The metric that matters is **false-auto rate** (should-escalate messages that got
-auto-sent) — kept near zero — followed by how much human load is removed.
+The metric that matters is **false-auto rate** (should-escalate messages that were
+auto-sent), then how much human load is removed.
 
-**What I deliberately did not build:**
-- No fine-tuning — few-shot + retrieval only.
-- No multi-turn dialogue state — the agent sees the opening message only.
-- No live integrations (flight status, PNR lookup, posting to Twitter).
-- No non-English handling — filtered out (5% of Delta threads).
-- No generation of the DM conversation that follows an escalation.
+**What I deliberately did not build:** no fine-tuning (few-shot + retrieval only);
+no multi-turn dialogue state (opening message only); no live integrations (flight
+status, PNR lookup, posting); no non-English (5% of Delta threads, filtered); no
+generation of the DM conversation that follows an escalation.
 
 ## 2. System
 
 ```
-tweet ─▶ classify (gpt-oss-120b, 8 intents + other)
-      ─▶ retrieve (FAISS / bge-small, top-5 past resolved Delta threads)
-      ─▶ draft   (gpt-oss-120b, grounded ONLY in retrieved replies; may abstain)
-      ─▶ route   (rule layer: safety/money/disruption/churn/live-data/intent-risk/
-                  confidence  ▸ then LLM upgrade-only safety check)
+tweet ─▶ classify (gpt-oss-120b / -20b, 8 intents + other, 5-shot)
+      ─▶ retrieve (FAISS · bge-small-en-v1.5 local, top-5 past resolved threads)
+      ─▶ draft   (grounded ONLY in retrieved replies; abstains → grounded=false)
+      ─▶ route   (deterministic rules: safety / money / disruption / churn /
+                  live-data / intent-risk / confidence  ▸ then an LLM
+                  upgrade-only safety check that can turn auto→escalate)
 ```
-Corpus = 6,000 older threads; golden set = 199 hand-labelled newer threads
-(time-split, no leakage). Full details: `INTENTS.md`, `docs/golden_set_note.md`,
-`DECISIONS.md`.
+Corpus = 6,000 older threads; golden set = 199 newer threads, hand-labelled,
+time-split so a golden example's own resolution is never retrievable. Model stack
+is free-tier: Groq `gpt-oss` (draft/classify), Groq `qwen3.8-27b` (judge — a
+different lineage), local sentence-transformers (embeddings). Details:
+`INTENTS.md`, `docs/golden_set_note.md`, `DECISIONS.md`.
 
 ## 3. Results vs. baselines
 
@@ -48,83 +51,153 @@ Corpus = 6,000 older threads; golden set = 199 hand-labelled newer threads
 
 | system | accuracy | macro-F1 |
 |--------|---------:|---------:|
-| trivial — majority class | {{cls_triv_acc}} | {{cls_triv_f1}} |
-| simple — kNN (leave-one-out) | {{cls_knn_acc}} | {{cls_knn_f1}} |
-| **agent — gpt-oss-120b few-shot** | **{{cls_agent_acc}}** | **{{cls_agent_f1}}** |
+| trivial — majority class (`compliment`) | 0.24 | 0.04 |
+| simple — kNN, leave-one-out over golden embeddings | 0.47 | 0.30 |
+| **agent — gpt-oss few-shot** | **0.83** | **0.79** |
 
-Weakest intents: {{cls_weak_intents}}.
+`compliment` is perfect (F1 1.00). Weakest: `booking_reservation` 0.67,
+`checkin_boarding` 0.73, `loyalty_miles` 0.73. Dominant error: specific issues
+phrased with frustration get absorbed into `complaint` (2 flight_disruption, 2
+baggage, 1 booking, 1 seat, 1 loyalty → complaint), and `checkin_boarding` is
+confused with `seat_upgrade` (3 of 7).
 
-### 3b. Routing (auto vs. escalate)
+### 3b. Routing (auto vs. escalate) — the weak point
 
-| system | accuracy | escalate-recall | **false-auto** | over-escalation |
-|--------|---------:|----------------:|---------------:|----------------:|
-| trivial — always escalate | {{r_esc_acc}} | 1.00 | 0.00 | 1.00 |
-| trivial — always auto | {{r_auto_acc}} | 0.00 | 1.00 | 0.00 |
-| simple — escalate if intent-risk = high (pred intent) | {{r_rule_acc}} | {{r_rule_rec}} | {{r_rule_fa}} | {{r_rule_oe}} |
-| **agent router** | **{{r_agent_acc}}** | **{{r_agent_rec}}** | **{{r_agent_fa}}** | **{{r_agent_oe}}** |
+| system | acc | escalate-recall | **false-auto** | over-escalation |
+|--------|----:|----------------:|---------------:|----------------:|
+| trivial — always escalate | 0.45 | 1.00 | **0.00** | 1.00 |
+| trivial — always auto | 0.55 | 0.00 | 1.00 | 0.00 |
+| simple — escalate if intent-risk = high (predicted intent) | **0.65** | 0.53 | 0.47 | 0.26 |
+| **agent router** | 0.59 | 0.62 | **0.38** | 0.44 |
+
+**The engineered router loses to a one-line rule on accuracy** (0.59 vs 0.65) and
+still auto-sends 38% of messages that should reach a human. It buys slightly
+higher recall (0.62 vs 0.53) by over-escalating more (0.44 vs 0.26). Cohen's κ is
+0.18 — barely above chance. This is the headline negative result; see failure
+mode 1 and §6.
 
 ### 3c. Reply quality (LLM judge, 1–5)
 
-| reply | overall | groundedness | helpfulness | tone | safety | hallucination |
-|-------|--------:|-------------:|------------:|-----:|-------:|--------------:|
-| trivial — canned holding reply | {{rep_canned}} | | | | | |
-| simple — nearest past reply, verbatim | {{rep_nn}} | | | | | |
-| **agent draft (all)** | **{{rep_agent}}** | | | | | {{rep_agent_hall}} |
-| agent draft — auto-sent only | {{rep_auto}} | | | | | {{rep_auto_hall}} |
+| reply | overall | ground | help | tone | safety | halluc-flag |
+|-------|--------:|-------:|-----:|-----:|-------:|------------:|
+| trivial — canned holding reply | 2.77 | 1.98 | 1.68 | 2.70 | 4.75 | 0.10 |
+| simple — nearest past reply, verbatim | 3.73 | 4.03 | 2.80 | 3.52 | 4.58 | 0.15 |
+| **agent draft (all 100)** | **4.13** | 3.95 | 3.82 | 4.49 | 4.25 | 0.18 |
+| agent draft — auto-sent only (n=48) | 4.31 | 4.25 | 3.98 | 4.60 | 4.40 | 0.17 |
 
-Agent draft vs. Delta's actual reply, cosine similarity: {{rep_cos}}.
+The agent beats both baselines overall and is much stronger on *helpfulness* and
+*tone* than the verbatim-nearest-neighbour reply — but it is **less safe** (4.25
+vs 4.58) and gets more hallucination flags, because it generates rather than
+copies. Auto-sent replies score higher across the board (the router does keep the
+worst drafts back), but 8 of 48 auto-sent replies are still hallucination-flagged.
+Agent draft vs. Delta's actual reply, mean cosine: 0.62.
 
 ## 4. Is the judge trustworthy?
 
-40 agent replies scored by a human and by the judge (`qwen3.8-27b`) on the same
-rubric.
+39 agent replies scored by a human (the author) and by the judge (`qwen3.8-27b`)
+on the same rubric.
 
-| dimension | quad-weighted κ | Spearman ρ | mean abs error |
-|-----------|---------------:|-----------:|---------------:|
-| groundedness | {{j_g_k}} | {{j_g_s}} | {{j_g_m}} |
-| helpfulness | {{j_h_k}} | {{j_h_s}} | {{j_h_m}} |
-| tone | {{j_t_k}} | {{j_t_s}} | {{j_t_m}} |
-| safety | {{j_s_k}} | {{j_s_s}} | {{j_s_m}} |
-| **pooled** | **{{j_p_k}}** | **{{j_p_s}}** | **{{j_p_m}}** |
+| dimension | quad-weighted κ | Spearman ρ | mean abs error | human / judge mean |
+|-----------|---------------:|-----------:|---------------:|-------------------:|
+| groundedness | 0.47 | 0.50 | 0.90 | 3.79 / 3.77 |
+| helpfulness | 0.45 | 0.28 | 0.87 | 3.64 / 3.79 |
+| tone | 0.52 | 0.35 | 0.49 | 4.44 / 4.46 |
+| safety | 0.43 | 0.62 | 0.80 | 4.28 / 4.00 |
+| **pooled** | **0.49** | **0.46** | **0.76** | — |
 
-Where judge and human diverge: {{judge_divergence}}.
+**Read:** the judge is *well-calibrated in aggregate* (dimension means within 0.3
+of the human) but agrees only *moderately* on individual replies (pooled κ 0.49,
+Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
+(ρ 0.28). It is slightly stricter on safety than the human. Conclusion: trust the
+**aggregate** comparisons in §3c, not any single per-reply score.
 
 ## 5. Top 5 failure modes
 
-1. {{fail_1}}
-2. {{fail_2}}
-3. {{fail_3}}
-4. {{fail_4}}
-5. {{fail_5}}
+1. **Router under-escalates specific complaints (false-auto 38%).** When a
+   customer describes a concrete account-level problem in a frustrated tone, the
+   classifier calls it `complaint` (medium risk) and the router auto-sends. Real
+   examples auto'd that should have escalated: *"gate staff gave my seat away and
+   then I got attitude"* (E-ACCOUNT), *"why is Delta charging for a lap infant AND
+   checked bags"* (E-MONEY — the keyword regex is `charged?`, so "charging" never
+   matched), *"2 hours for a callback to change my flight tomorrow"*
+   (E-DISRUPTION). *Hypothesis:* medium-risk intents should default to escalate
+   unless the message is clearly generic venting; keyword rules are too brittle
+   for money/disruption detection.
+
+2. **Draft invents specifics — phone numbers, policy, compensation (≈18%
+   flagged, ≈8–10% hard fabrications).** e.g. a fabricated *"888-750-3284"* support
+   line; *"Gold members don't qualify for complimentary upgrades — only Platinum
+   Elite"* (factually wrong for Delta); *"Enjoy those extra SkyMiles!"* (unbacked
+   compensation); a copied fake agent signature *"\*ABN <URL>"* pulled from a
+   precedent reply. *Hypothesis:* the grounding instruction is not enforced;
+   precedent that itself contains signatures/links leaks into the draft. Needs a
+   post-generation check that every named entity/number appears in the retrieved
+   context.
+
+3. **Classifier collapses distinct issues into `complaint`, and confuses
+   `checkin_boarding` with `seat_upgrade`.** 7 of the ~24 misclassifications route
+   into `complaint`; 3 of 7 `checkin_boarding` examples become `seat_upgrade`
+   (both involve seats and the app). *Hypothesis:* the taxonomy boundary between
+   "I have a service grievance" and "I have a specific problem with X" is under-
+   specified in the prompt; add contrastive few-shot pairs.
+
+4. **Agent reads non-problems as problems and over-apologises.** *"This year's
+   diamond benefits are outstanding 💎 — now bring back Flying Colonel status"*
+   (a playful compliment) → *"I'm sorry you're missing Flying Colonel status…"*;
+   *"can you show the WAS-DAL game on flight 74?"* (a request) → *"Sorry for the
+   inconvenience…"*. *Hypothesis:* the draft prompt primes an apologetic frame;
+   sentiment/act classification should gate the opening line.
+
+5. **"DM your confirmation number" reflex even when it adds nothing.** For vague
+   vents (*"why is it ALWAYS something 👎🏿"*) and answerable policy questions the
+   draft still asks for a PNR, which drags helpfulness down (agent helpfulness
+   3.82 vs tone 4.49). The judge also over-flags this reflex as "hallucination",
+   inflating the rate in §3c. *Hypothesis:* the agent has one move; it needs an
+   explicit "answer directly" branch for low-risk informational intents.
 
 ## 6. What is misleading about my headline number?
 
+- **"Agent classification accuracy 0.83" hides that routing — the part that
+  actually gates automation — is barely above a one-line rule (0.59 vs 0.65) and
+  auto-sends 38% of should-escalates.** The system is not deployable on that
+  number.
 - **Routing accuracy is partly self-graded.** The router's rules and the golden
-  routing labels were written from the same rubric by the same person. Read
-  escalate-recall / false-auto instead, and the independent baselines.
-- **"DM your confirmation number" = escalate** is my call. Flip it and ~35 labels
-  move; the agent's escalation rate and the "human load removed" figure change
-  materially.
-- **Single labeller** for the golden set and the judge-validation human scores —
-  no inter-annotator agreement number. Ambiguous rows (28/199) are where this
-  bites.
+  routing labels were written from the same rubric by the same person. The
+  honest signals are false-auto-rate and the independent baselines, not accuracy.
+- **"DM your confirmation number" = escalate is my labelling call.** Flip it and
+  ~35 golden labels move; the false-auto rate and "human load removed" figure
+  change materially.
+- **Single labeller** for both the golden set and the judge-validation human
+  scores — there is no inter-annotator κ. 14 of the 100 eval rows are flagged
+  `ambiguous`; on the `easy` slice routing is only marginally better (0.63).
 - **Reference reply ≠ ground truth.** Delta's actual reply is often itself a
-  templated "DM us"; scoring groundedness/helpfulness against it rewards
-  imitating a deflection.
-- **English-only, opening-message-only, time-boxed to 2017 data** — the numbers
-  don't transfer to live multilingual multi-turn traffic.
-- **Judge is a 27B open model**, not frontier; its κ with a human caps how much
-  weight the reply-quality table can bear.
-- **checkin_boarding F1 is over 7 examples** — noise.
+  templated "DM us"; scoring groundedness/helpfulness against it partly rewards
+  imitating a deflection, and the verbatim-NN baseline looks artificially strong
+  on groundedness (4.03) for the same reason.
+- **The judge is a 27B open model with pooled κ 0.49 vs a human.** The reply-
+  quality table can carry aggregate weight but not per-example claims, and the
+  hallucination rate is inflated by the judge flagging the standard DM-ask.
+- **100 examples, English-only, opening-message-only, 2017 data.** Confidence
+  intervals on a 0.59 routing accuracy over n=100 are roughly ±10 points; none of
+  this transfers to live multilingual multi-turn traffic.
+- **Two draft models (gpt-oss-120b for 72, -20b for 28)** after the token cap —
+  a small confound in the reply-quality numbers.
 
 ## 7. With one more week
 
-- Second annotator on the golden set + judge sample → real κ, and adjudicate the
-  28 ambiguous rows.
-- Confidence-calibrated routing: learn thresholds on a dev split instead of hand-
-  set floors; add an abstain band that routes to a lightweight human check.
-- Retrieval upgrade: filter precedent to same-intent, drop handoff-only replies,
-  try a cross-encoder reranker.
-- Expand golden to 250 with harder negatives (near-duplicate intents, sarcasm).
-- Add a second brand (SouthwestAir) to test whether the pipeline transfers.
-- Adversarial safety pass: prompt-injection in tweets, fake compensation claims.
+- **Fix routing first.** Default medium-risk intents to escalate; replace keyword
+  regexes with a small learned classifier over the signals; learn the confidence
+  / similarity thresholds on a dev split instead of hand-setting them; add an
+  abstain band routed to a lightweight human check.
+- **Enforce grounding.** Post-generation check that every number / proper noun /
+  policy claim in the draft appears in the retrieved context; strip agent
+  signatures and URLs from precedent before it reaches the drafter.
+- **Second annotator** on the golden set and the judge sample → real κ; adjudicate
+  the 28 ambiguous rows.
+- **Retrieval upgrade:** restrict precedent to same predicted intent, drop
+  handoff-only replies, add a cross-encoder reranker.
+- **Full-set eval** once off the free tier; expand golden to 250 with harder
+  negatives (sarcasm, near-duplicate intents).
+- **Adversarial safety pass:** prompt injection in tweets, fake compensation
+  claims, impersonation.
+- **Transfer test:** run the same pipeline on SouthwestAir with no code changes.

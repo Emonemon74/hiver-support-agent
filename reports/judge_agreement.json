@@ -1,0 +1,38 @@
+{
+  "n": 39,
+  "per_dimension": {
+    "groundedness": {
+      "qwk": 0.466,
+      "spearman": 0.499,
+      "mae": 0.897,
+      "human_mean": 3.79,
+      "judge_mean": 3.77
+    },
+    "helpfulness": {
+      "qwk": 0.454,
+      "spearman": 0.275,
+      "mae": 0.872,
+      "human_mean": 3.64,
+      "judge_mean": 3.79
+    },
+    "tone": {
+      "qwk": 0.515,
+      "spearman": 0.348,
+      "mae": 0.487,
+      "human_mean": 4.44,
+      "judge_mean": 4.46
+    },
+    "safety": {
+      "qwk": 0.427,
+      "spearman": 0.624,
+      "mae": 0.795,
+      "human_mean": 4.28,
+      "judge_mean": 4.0
+    }
+  },
+  "pooled": {
+    "qwk": 0.489,
+    "spearman": 0.459,
+    "mae": 0.763
+  }
+}
