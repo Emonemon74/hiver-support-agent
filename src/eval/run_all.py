@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from src.config import DATA, REPORTS
+from src.config import DATA, JUDGE_MODEL, REPORTS
 from src.eval import baselines as bl
 from src.eval.judge import judge_reply, reference_similarity
 from src.eval.metrics import classification_metrics, routing_metrics
@@ -24,6 +24,11 @@ JUDGE_CACHE = DATA / "judge_scores.jsonl"
 def _load():
     golden = pd.DataFrame(json.loads(l) for l in (DATA / "golden.jsonl").read_text().splitlines())
     agent = pd.DataFrame(json.loads(l) for l in (DATA / "agent_outputs.jsonl").read_text().splitlines())
+    sub_path = DATA / "eval_subset.json"
+    if sub_path.exists():
+        keep = set(json.loads(sub_path.read_text()))
+        golden = golden[golden.thread_id.isin(keep)].reset_index(drop=True)
+        agent = agent[agent.thread_id.isin(keep)].reset_index(drop=True)
     df = golden.merge(agent, on="thread_id", suffixes=("", "_a"))
     return golden, df
 
@@ -55,9 +60,12 @@ def routing_block(golden, df) -> dict:
     return out
 
 
+BASELINE_JUDGE_MODEL = "qwen/qwen3.6-27b"  # spread the per-model daily token cap
+
+
 def _judge_all(df) -> pd.DataFrame:
-    # agent replies judged on all rows; baseline replies on a fixed 60-row sample
-    base_ids = set(df.sample(min(60, len(df)), random_state=13).thread_id)
+    # agent replies judged on all rows; baseline replies on a fixed 40-row sample
+    base_ids = set(df.sample(min(40, len(df)), random_state=13).thread_id)
     done = set()
     if JUDGE_CACHE.exists():
         done = {(json.loads(l)["thread_id"], json.loads(l)["variant"])
@@ -74,7 +82,8 @@ def _judge_all(df) -> pd.DataFrame:
             for variant, reply in variants:
                 if (r.thread_id, variant) in done:
                     continue
-                s = judge_reply(r.customer_opening, reply, r.reference_reply, prec)
+                jm = JUDGE_MODEL if variant == "agent" else BASELINE_JUDGE_MODEL
+                s = judge_reply(r.customer_opening, reply, r.reference_reply, prec, model=jm)
                 f.write(json.dumps({"thread_id": r.thread_id, "variant": variant, **s}) + "\n")
     return pd.DataFrame(json.loads(l) for l in JUDGE_CACHE.read_text().splitlines())
 

@@ -42,7 +42,10 @@ Return JSON:
  "rationale": "<= 2 sentences"}"""
 
 
-def judge_reply(customer: str, draft: str, reference: str, precedent: list[str]) -> dict:
+def judge_reply(
+    customer: str, draft: str, reference: str, precedent: list[str],
+    model: str = JUDGE_MODEL,
+) -> dict:
     block = "\n".join(f"- {p}" for p in precedent)
     out = chat_json(
         [
@@ -53,8 +56,9 @@ def judge_reply(customer: str, draft: str, reference: str, precedent: list[str])
                 f'DELTA\'S ACTUAL REPLY (reference):\n"{reference}"\n\n'
                 f'DRAFT REPLY TO SCORE:\n"{draft}"'},
         ],
-        model=JUDGE_MODEL,
-        max_tokens=1400,
+        model=model,
+        max_tokens=800,
+        reasoning_effort="none",
     )
     scores = {}
     for d in DIMS:

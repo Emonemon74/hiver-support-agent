@@ -7,6 +7,7 @@ cached by src.llm, so re-runs are cheap.
 from __future__ import annotations
 
 import json
+import sys
 
 from tqdm import tqdm
 
@@ -23,12 +24,18 @@ def main() -> None:
     if OUT.exists():
         done = {json.loads(l)["thread_id"] for l in OUT.read_text().splitlines()}
 
+    # optional: restrict to the ids in data/eval_subset.json (free-tier quota)
+    sub_path = DATA / "eval_subset.json"
+    if len(sys.argv) > 1 and sys.argv[1] == "subset" and sub_path.exists():
+        keep = set(json.loads(sub_path.read_text()))
+        golden = [g for g in golden if g["thread_id"] in keep]
+
     with OUT.open("a") as f:
         for g in tqdm(golden, desc="agent"):
             if g["thread_id"] in done:
                 continue
             r = run(g["customer_opening"])
-            f.write(json.dumps({
+            rec = json.dumps({
                 "thread_id": g["thread_id"],
                 "intent_pred": r.intent,
                 "intent_confidence": r.intent_confidence,
@@ -40,7 +47,9 @@ def main() -> None:
                 "signals": r.signals,
                 "top_precedent_reply": r.precedent[0]["reply"] if r.precedent else "",
                 "top_precedent_score": r.precedent[0]["score"] if r.precedent else 0.0,
-            }) + "\n")
+            })
+            f.write(rec + "\n")
+            f.flush()
     print(f"done -> {OUT} ({sum(1 for _ in OUT.open())} rows)")
 
 
