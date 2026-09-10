@@ -10,30 +10,33 @@ with a stated reason.
 baselines, judge-vs-human agreement, and failure analysis, and
 [`DECISIONS.md`](DECISIONS.md) for the decision log.
 
-## Reproduce the headline results (<15 min)
+## Reproduce the headline results (verified ~1 min, no API key)
 
 ```bash
-# 1. Environment (Python 3.11)
 uv venv --python 3.11 && source .venv/bin/activate
 make install
-
-# 2. Secrets
-cp .env.example .env      # add GROQ_API_KEY (free, no card: https://console.groq.com)
-                          # embeddings run locally — no key needed
-
-# 3. Data  (Kaggle API, or drop twcs.csv into ./data/ yourself)
-make data
-
-# 4. Pipeline + evaluation
-make dataset      # filter to Delta, build corpus + eval holdout (~2 min)
-make eval         # baselines + agent + LLM-judge -> reports/results.json + tables
+make eval          # -> reports/results.json + the tables below
 ```
 
-`make eval` reuses the committed caches (`data/agent_outputs.jsonl`,
-`data/judge_scores.jsonl`) and prints in seconds. Deleting them re-runs the
-agent + judge from scratch (~50 min, and needs Groq quota — the free tier caps
-at 200k tokens/day/model, which is why the eval runs on a 100-example subsample;
-see `data/eval_subset.json` and REPORT.md §top).
+`make eval` replays from the committed caches (`data/golden.jsonl`,
+`data/agent_outputs.jsonl`, `data/judge_scores.jsonl`, `data/eval_subset.json`).
+On a fresh clone it downloads the ~130 MB embedding model once and then prints
+every headline number in about a minute. **No `GROQ_API_KEY` needed for this
+path.**
+
+### Rebuild from scratch (needs data + a free Groq key)
+
+```bash
+cp .env.example .env                       # add GROQ_API_KEY (https://console.groq.com)
+make data                                  # Kaggle API, or drop twcs.csv into ./data/
+make dataset                               # Delta filter -> corpus + holdout (~2 min)
+rm data/agent_outputs.jsonl data/judge_scores.jsonl
+make agent && make eval && make judge-agreement && make routing
+```
+
+The from-scratch run is ~50 min and hits the Groq free-tier cap (200k
+tokens/day/model), which is why the eval uses a **100-example stratified
+subsample** (`data/eval_subset.json`); see REPORT.md.
 
 **Headline:** intent classification **0.83 acc / 0.79 macro-F1** (vs 0.47 kNN);
 routing **0.69 acc, 0.11 false-auto, 0.89 escalate-recall** (v2, after error

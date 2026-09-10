@@ -16,6 +16,15 @@ profile:
 dataset:
 	$(PY) -m src.build_dataset
 
+agent:
+	$(PY) -m src.eval.run_agent subset
+
+routing:
+	$(PY) -m src.eval.rerun_routing
+
+judge-agreement:
+	$(PY) -m src.eval.judge_validation
+
 eval:
 	$(PY) -m src.eval.run_all
 
