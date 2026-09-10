@@ -24,3 +24,7 @@ data/.llm_cache/
 !data/agent_outputs.jsonl
 !data/judge_scores.jsonl
 !data/judge_human_sheet.jsonl
+
+# stray debug logs
+err.log
+*.log
