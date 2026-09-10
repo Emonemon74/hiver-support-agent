@@ -56,8 +56,6 @@ def agreement() -> dict:
     from src.eval.judge_human_scores import HUMAN  # thread_id -> {dim: score}
 
     rows = [json.loads(l) for l in SHEET.read_text().splitlines()]
-    golden = {json.loads(l)["thread_id"]: json.loads(l)
-              for l in (DATA / "golden.jsonl").read_text().splitlines()}
     agent = {json.loads(l)["thread_id"]: json.loads(l)
              for l in (DATA / "agent_outputs.jsonl").read_text().splitlines()}
 

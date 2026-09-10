@@ -68,25 +68,27 @@ confused with `seat_upgrade` (3 of 7).
 | trivial — always escalate | 0.45 | 1.00 | **0.00** | 1.00 |
 | trivial — always auto | 0.55 | 0.00 | 1.00 | 0.00 |
 | simple — escalate if intent-risk = high (predicted intent) | 0.65 | 0.53 | 0.47 | 0.26 |
-| agent router **v1** (first cut) | 0.59 | 0.62 | 0.38 | 0.44 |
-| **agent router v2** (rules revised after error analysis) | **0.69** | **0.89** | **0.11** | 0.47 |
+| agent router — first cut (commit `63840d0`) | 0.59 | 0.62 | 0.38 | 0.44 |
+| **agent router — current** | **0.70** | **0.91** | **0.089** | 0.47 |
 
-**v1 was the weak point** — it lost to the one-line rule (0.59 vs 0.65) and
-auto-sent 38% of should-escalates, because (a) `complaint` (medium-risk) defaulted
-to auto, and (b) the money regex was `charged?`, so "charging" never matched.
+**The first cut was the weak point** — it lost to the one-line rule (0.59 vs 0.65)
+and auto-sent 38% of should-escalates, because (a) `complaint` (medium-risk)
+defaulted to auto, and (b) the money regex was `charged?`, so "charging" never
+matched.
 
-**v2** fixes both: `checkin_boarding` joined the account-access intent set;
-`complaint`/`other` escalate when the message names a concrete personal incident
-(`E-INCIDENT` — a flight number, a staff role, "my seat/bag/flight", a time
-anchor) and otherwise stay auto; the money/disruption/live-data patterns were
-broadened. Result: **false-auto 0.38 → 0.11, escalate-recall 0.62 → 0.89**, at the
-cost of 3 extra false-escalations (over-escalation 0.44 → 0.47).
+**The current router** fixes both: `checkin_boarding` joined the account-access
+intent set; `complaint`/`other` escalate when the message names a concrete
+personal incident (`E-INCIDENT` — a flight number, a staff role, "my seat/bag/
+flight", a time anchor) and otherwise stay auto; the money/disruption/live-data
+patterns were broadened. Result: **false-auto 0.38 → 0.09, escalate-recall
+0.62 → 0.91**, at the cost of a higher over-escalation rate (0.44 → 0.47).
 
-**Caveat (see §6):** v2's rules were revised *after* inspecting v1's errors on this
-same 100, so 0.69 is optimistic. The honest check is the rule layer run with
-**gold** intent over all **199** golden examples: **acc 0.71, false-auto 0.07,
-recall 0.93** (`reports/routing_v2.json`) — consistent, so the rules generalise
-beyond the subsample rather than memorising it.
+**Caveat (see §6):** these rules were revised *after* inspecting the first cut's
+errors on this same 100, so 0.70 is optimistic. Independent check — the rule layer
+run with **gold** intent over all **199** golden examples: **acc 0.71, false-auto
+0.07, recall 0.93** (`reports/routing_v2.json`). Consistent, so the rules
+generalise rather than memorise the subsample. Both runs are reproduced offline by
+`make routing` (no new LLM spend beyond the cached upgrade check).
 
 ### 3c. Reply quality (LLM judge, 1–5)
 
@@ -95,14 +97,15 @@ beyond the subsample rather than memorising it.
 | trivial — canned holding reply | 2.77 | 1.98 | 1.68 | 2.70 | 4.75 | 0.10 |
 | simple — nearest past reply, verbatim | 3.73 | 4.03 | 2.80 | 3.52 | 4.58 | 0.15 |
 | **agent draft (all 100)** | **4.13** | 3.95 | 3.82 | 4.49 | 4.25 | 0.18 |
-| agent draft — auto-sent only (n=48) | 4.31 | 4.25 | 3.98 | 4.60 | 4.40 | 0.17 |
+| agent draft — auto-sent only (n=33) | 4.35 | 4.39 | 3.88 | 4.61 | 4.52 | 0.15 |
 
 The agent beats both baselines overall and is much stronger on *helpfulness* and
-*tone* than the verbatim-nearest-neighbour reply — but it is **less safe** (4.25
-vs 4.58) and gets more hallucination flags, because it generates rather than
-copies. Auto-sent replies score higher across the board (the router does keep the
-worst drafts back), but 8 of 48 auto-sent replies are still hallucination-flagged.
-Agent draft vs. Delta's actual reply, mean cosine: 0.62.
+*tone* than the verbatim-nearest-neighbour reply — but across all 100 it is **less
+safe** (4.25 vs 4.58) and gets more hallucination flags, because it generates
+rather than copies. The auto-sent subset scores markedly higher (safety 4.52,
+groundedness 4.39) — the router holds the riskier drafts back — yet ~5 of 33
+auto-sent replies are still hallucination-flagged (see failure mode 2). Agent
+draft vs. Delta's actual reply, mean cosine (bge-small): 0.76.
 
 ## 4. Is the judge trustworthy?
 
@@ -125,18 +128,18 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 
 ## 5. Top 5 failure modes
 
-1. **(v1, now fixed) Router under-escalated specific complaints (false-auto
-   38%).** When a customer described a concrete account-level problem in a
-   frustrated tone, the classifier called it `complaint` (medium risk) and the
-   router auto-sent. Examples auto'd that should have escalated: *"gate staff gave
-   my seat away and then I got attitude"*, *"why is Delta charging for a lap infant
-   AND checked bags"* (the regex was `charged?`, so "charging" never matched),
-   *"2 hours for a callback to change my flight tomorrow"*. **v2 fix** (§3b) took
-   false-auto to 11%. The residual failure: v2 now *over*-escalates ~47% of true
-   `auto` messages — e.g. *"app won't let me log in, anyone else?"* (a status
-   check) and *"First Class costs less than Coach, price-gouging?"* (an opinion)
-   both trip `E-ACCOUNT`/`E-MONEY`. Keyword rules are still too blunt; the fix is
-   a learned classifier over the signal vector.
+1. **(first cut, now fixed) Router under-escalated specific complaints
+   (false-auto 38%).** When a customer described a concrete account-level problem
+   in a frustrated tone, the classifier called it `complaint` (medium risk) and
+   the router auto-sent. Examples auto'd that should have escalated: *"gate staff
+   gave my seat away and then I got attitude"*, *"why is Delta charging for a lap
+   infant AND checked bags"* (the regex was `charged?`, so "charging" never
+   matched), *"2 hours for a callback to change my flight tomorrow"*. The fix
+   (§3b) took false-auto to 9%. **Residual failure:** the current router
+   *over*-escalates ~47% of true `auto` messages — e.g. *"app won't let me log in,
+   anyone else?"* (a status check) and *"First Class costs less than Coach,
+   price-gouging?"* (an opinion) both trip `E-ACCOUNT`/`E-MONEY`. Keyword rules are
+   still too blunt; the fix is a learned classifier over the signal vector.
 
 2. **Draft invents specifics — phone numbers, policy, compensation (≈18%
    flagged, ≈8–10% hard fabrications).** e.g. a fabricated *"888-750-3284"* support
@@ -171,13 +174,13 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 
 ## 6. What is misleading about my headline number?
 
-- **Routing v2's 0.69 is tuned on the test set.** The rules were revised after
-  reading v1's errors on the same 100 examples. The gold-intent-on-199 check
-  (0.71, false-auto 0.07) says the rules generalise, but a clean number needs a
+- **The current routing accuracy (0.70) is tuned on the test set.** The rules were revised after
+  reading the first cut's errors on the same 100 examples. The gold-intent-on-199 check
+  (acc 0.71, false-auto 0.07) says the rules generalise, but a clean number needs a
   fresh holdout the rules never saw.
 - **Routing is partly self-graded.** The router's rules and the golden routing
   labels come from the same rubric and the same person. Read false-auto-rate and
-  the independent baselines, not raw accuracy — and note v2 trades a 0.47
+  the independent baselines, not raw accuracy — and note the router trades a 0.47
   over-escalation rate for its low false-auto, i.e. it sends ~half of genuinely
   safe traffic to humans.
 - **"DM your confirmation number" = escalate is my labelling call.** Flip it and
@@ -185,17 +188,24 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
   change materially.
 - **Single labeller** for both the golden set and the judge-validation human
   scores — there is no inter-annotator κ. 14 of the 100 eval rows are flagged
-  `ambiguous`; on the `easy` slice routing is only marginally better (0.63).
+  `ambiguous`; on the `easy` slice routing is only marginally better (0.73 vs 0.70).
 - **Reference reply ≠ ground truth.** Delta's actual reply is often itself a
   templated "DM us"; scoring groundedness/helpfulness against it partly rewards
   imitating a deflection, and the verbatim-NN baseline looks artificially strong
   on groundedness (4.03) for the same reason.
-- **The judge is a 27B open model with pooled κ 0.49 vs a human.** The reply-
-  quality table can carry aggregate weight but not per-example claims, and the
-  hallucination rate is inflated by the judge flagging the standard DM-ask.
+- **The judge is a 27B open model with pooled κ 0.49 vs a human**, and it sees
+  only the *top-1* precedent while the drafter grounded in the top-5 — so a reply
+  supported by precedent #2–5 looks ungrounded to the judge. Both effects inflate
+  the 0.18 hallucination rate (on inspection roughly half of the flags are the
+  standard DM-ask, not real fabrications). The reply-quality table carries
+  aggregate weight, not per-example claims.
 - **100 examples, English-only, opening-message-only, 2017 data.** Confidence
-  intervals on a 0.59 routing accuracy over n=100 are roughly ±10 points; none of
-  this transfers to live multilingual multi-turn traffic.
+  intervals on a routing accuracy over n=100 are roughly ±9 points; none of this
+  transfers to live multilingual multi-turn traffic.
+- **Topical train/test overlap.** The time-split removes exact leakage (0 golden
+  openings match a corpus opening at cosine > 0.95), but 12 of 199 have a corpus
+  neighbour > 0.90 — same topic, different thread. Retrieval quality is flattered
+  slightly.
 - **Two draft models (gpt-oss-120b for 72, -20b for 28)** after the token cap —
   a small confound in the reply-quality numbers.
 

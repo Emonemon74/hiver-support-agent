@@ -1,35 +1,21 @@
 {
-  "agent_router_v1_subsample": {
-    "accuracy": 0.59,
-    "escalate_precision": 0.538,
-    "escalate_recall": 0.622,
-    "escalate_f1": 0.577,
-    "false_auto_rate": 0.378,
-    "over_escalation_rate": 0.436,
-    "kappa": 0.183,
-    "counts": {
-      "tp": 28,
-      "fp": 24,
-      "fn": 17,
-      "tn": 31
-    }
-  },
-  "agent_router_v2_subsample": {
-    "accuracy": 0.69,
-    "escalate_precision": 0.606,
-    "escalate_recall": 0.889,
-    "escalate_f1": 0.721,
-    "false_auto_rate": 0.111,
+  "agent_router_subsample_n": 100,
+  "agent_router_subsample": {
+    "accuracy": 0.7,
+    "escalate_precision": 0.612,
+    "escalate_recall": 0.911,
+    "escalate_f1": 0.732,
+    "false_auto_rate": 0.089,
     "over_escalation_rate": 0.473,
-    "kappa": 0.399,
+    "kappa": 0.42,
     "counts": {
-      "tp": 40,
+      "tp": 41,
       "fp": 26,
-      "fn": 5,
+      "fn": 4,
       "tn": 29
     }
   },
-  "rule_v2_gold_intent_all199": {
+  "rule_layer_gold_intent_all199": {
     "accuracy": 0.714,
     "escalate_precision": 0.622,
     "escalate_recall": 0.933,
@@ -43,6 +29,5 @@
       "fn": 6,
       "tn": 58
     }
-  },
-  "n_flips": 14
+  }
 }

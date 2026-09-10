@@ -46,15 +46,15 @@ Non-obvious choices and why. (Numbers filled from `reports/results.json`.)
    always-escalate and LLM-only baselines are the independent reference points;
    the honest read is escalate-*recall* and false-auto-rate, not raw accuracy.
 
-9b. **Router v2 after error analysis.** v1 (false-auto 0.38) lost to the one-line
+9b. **Router revised after error analysis.** The first cut (false-auto 0.38) lost to the one-line
    risk rule. v2 added `checkin_boarding` to the account-access set, made
    `complaint`/`other` escalate on a concrete-personal-incident signal
    (`E-INCIDENT`) rather than defaulting to auto, and broadened the money /
-   disruption / live-data patterns → false-auto 0.11, recall 0.89. Because this
+   disruption / live-data patterns → false-auto 0.09, recall 0.91. Because this
    was tuned on the eval subsample, it is re-checked with gold intent over all 199
-   (0.71 acc, 0.07 false-auto) — `reports/routing_v2.json`. The routing eval is
-   replayed offline from cached signals (`src/eval/rerun_routing.py`), no new
-   LLM spend.
+   (0.71 acc, 0.07 false-auto) — `reports/routing_v2.json`. The routing decision is
+   recomputed offline by `make routing` (`src/eval/rerun_routing.py`) without
+   re-running the pipeline.
 
 10. **Draft step must cite precedent and may abstain** (`grounded=false`). An
     abstention is fed to the router as an escalation signal rather than shipping a
@@ -68,7 +68,7 @@ Non-obvious choices and why. (Numbers filled from `reports/results.json`.)
     reply (simple).** The NN reply is a strong baseline for a support setting
     where past replies are templated — beating it is the real test.
 
-13. **Judge validation on a 40-row stratified sample**, quadratic-weighted Cohen's
+13. **Judge validation on a 39-row stratified sample**, quadratic-weighted Cohen's
     κ + Spearman per dimension. Single human scorer (the author) — flagged as the
     top limitation; the one-week fix is a second annotator.
 

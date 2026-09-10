@@ -1,82 +1,79 @@
-"""Replay the routing decision offline with the current rule layer (no LLM calls).
+"""Recompute the routing decision for every cached agent output with the current
+router (src/agent/route.py) and refresh both data/agent_outputs.jsonl and the
+routing metrics.
 
-Uses cached per-example signals (predicted intent, top precedent similarity,
-draft.grounded) from data/agent_outputs.jsonl, and keeps the LLM upgrade-only
-escalations that were recorded in the original run (trigger == 'E-LLM').
+The agent run (intent + retrieval + draft) is expensive and cached; routing is
+cheap, so this lets the router be iterated without re-running the pipeline. It
+re-invokes the real `route()` (rules + the LLM upgrade-only check, which is
+disk-cached in src.llm), then writes:
 
-Prints and writes reports/routing_v2.json:
-  - agent router v2 on the 100-example eval subsample (tuned on these, optimistic)
-  - rule layer v2 with GOLD intent on all 199 (semi-independent check that the
-    rules themselves aren't just memorising the subsample)
+  data/agent_outputs.jsonl   decision / trigger / reason / signals refreshed
+  reports/routing_v2.json    agent router on the 100-subsample + rule layer with
+                             GOLD intent over all 199 (generalisation check)
+
+Run: python -m src.eval.rerun_routing
 """
 from __future__ import annotations
 
 import json
 
-from src.agent.route import route_rules
+from src.agent.classify import IntentPred
+from src.agent.draft import Draft
+from src.agent.retrieve import Precedent
+from src.agent.route import route, route_rules
 from src.config import DATA, REPORTS
 from src.eval.metrics import routing_metrics
 
-
-def _rows():
-    golden = {j["thread_id"]: j for j in
-              (json.loads(l) for l in (DATA / "golden.jsonl").read_text().splitlines())}
-    agent = {j["thread_id"]: j for j in
-             (json.loads(l) for l in (DATA / "agent_outputs.jsonl").read_text().splitlines())}
-    return golden, agent
+AGENT = DATA / "agent_outputs.jsonl"
 
 
 def main() -> None:
-    golden, agent = _rows()
-    subset = set(json.loads((DATA / "eval_subset.json").read_text()))
+    golden = {j["thread_id"]: j for j in
+              (json.loads(l) for l in (DATA / "golden.jsonl").read_text().splitlines())}
+    rows = [json.loads(l) for l in AGENT.read_text().splitlines()]
 
-    # --- agent router v2 on the eval subsample ---
-    y_true, y_v2, y_v1 = [], [], []
-    flips = []
-    for tid in subset:
-        g, a = golden[tid], agent[tid]
-        d, trig, _ = route_rules(
-            g["customer_opening"], a["intent_pred"], a["intent_confidence"],
-            a["top_precedent_score"], a["reply_grounded"],
-        )
-        if d == "auto" and a["trigger"] == "E-LLM":
-            d, trig = "escalate", "E-LLM"      # keep the recorded LLM upgrade
-        y_true.append(g["route"]); y_v2.append(d); y_v1.append(a["decision"])
-        if d != a["decision"]:
-            flips.append((a["decision"] + "->" + d, g["route"], trig,
-                          g["customer_opening"][:80]))
+    y_true, y_pred = [], []
+    out_rows = []
+    for a in rows:
+        g = golden[a["thread_id"]]
+        intent = IntentPred(a["intent_pred"], a["intent_confidence"])
+        prec = [Precedent(opening="", reply=a["top_precedent_reply"],
+                          score=a["top_precedent_score"], is_handoff=False)]
+        draft = Draft(reply=a["reply"], grounded=a["reply_grounded"],
+                      used_precedent=[], notes="")
+        r = route(g["customer_opening"], intent, prec, draft)
+        a.update(decision=r.decision, trigger=r.trigger, reason=r.reason, signals=r.signals)
+        out_rows.append(a)
+        y_true.append(g["route"]); y_pred.append(r.decision)
 
-    v1 = routing_metrics(y_true, y_v1)
-    v2 = routing_metrics(y_true, y_v2)
+    with AGENT.open("w") as f:
+        for a in out_rows:
+            f.write(json.dumps(a) + "\n")
 
-    # --- rule layer v2 with GOLD intent, all 199 (rules-only sanity check) ---
+    agent_router = routing_metrics(y_true, y_pred)
+
+    # rule layer only, GOLD intent, all 199 — checks the rules generalise beyond
+    # the tuned 100-example subsample
     gt, gp = [], []
-    for tid, g in golden.items():
+    for g in golden.values():
         d, _, _ = route_rules(g["customer_opening"], g["intent"], 0.99, 0.6, True)
         gt.append(g["route"]); gp.append(d)
-    gold_intent_all = routing_metrics(gt, gp)
+    rule_gold_all = routing_metrics(gt, gp)
 
-    out = {
-        "agent_router_v1_subsample": v1,
-        "agent_router_v2_subsample": v2,
-        "rule_v2_gold_intent_all199": gold_intent_all,
-        "n_flips": len(flips),
-    }
+    res = {"agent_router_subsample_n": len(y_true),
+           "agent_router_subsample": agent_router,
+           "rule_layer_gold_intent_all199": rule_gold_all}
     REPORTS.mkdir(exist_ok=True)
-    (REPORTS / "routing_v2.json").write_text(json.dumps(out, indent=2))
+    (REPORTS / "routing_v2.json").write_text(json.dumps(res, indent=2))
 
     def line(name, m):
-        print(f"  {name:34s} acc {m['accuracy']:.3f}  esc-rec {m['escalate_recall']:.3f}  "
+        print(f"  {name:32s} acc {m['accuracy']:.3f}  esc-rec {m['escalate_recall']:.3f}  "
               f"false-auto {m['false_auto_rate']:.3f}  over-esc {m['over_escalation_rate']:.3f}  "
               f"F1 {m['escalate_f1']:.3f}")
 
-    print("ROUTING — before vs after the fix\n")
-    line("v1 agent router (subsample)", v1)
-    line("v2 agent router (subsample)", v2)
-    line("v2 rules w/ gold intent (n=199)", gold_intent_all)
-    print(f"\n{len(flips)} decisions changed on the subsample:")
-    for f in flips:
-        print(f"  {f[0]:18s} gold={f[1]:9s} {f[2]:11s} {f[3]}")
+    print("ROUTING (current router)\n")
+    line(f"agent router (n={len(y_true)})", agent_router)
+    line("rule layer / gold intent (n=199)", rule_gold_all)
 
 
 if __name__ == "__main__":

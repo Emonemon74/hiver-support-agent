@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.agent.classify import knn_classify
 from src.embed import encode
 from src.intents import RISK_CLASS
 
@@ -40,10 +39,6 @@ def knn_loo(texts: list[str], labels: list[str], k: int = 15) -> list[str]:
             votes[labels[j]] = votes.get(labels[j], 0.0) + float(sims[i, j])
         preds.append(max(votes, key=votes.get))
     return preds
-
-
-def route_always(_texts, _intents, decision: str) -> list[str]:
-    return [decision] * len(_texts)
 
 
 def route_risk_rule(intents: list[str]) -> list[str]:

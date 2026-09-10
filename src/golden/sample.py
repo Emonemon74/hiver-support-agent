@@ -42,7 +42,6 @@ def main() -> None:
     hold["cluster"] = km.labels_
     hold["stratum"] = [_structural_stratum(r) for r in hold.itertuples(index=False)]
 
-    rng = np.random.default_rng(SEED)
     picked: list[int] = []
     # proportional allocation across clusters, with a floor
     sizes = hold.cluster.value_counts().sort_index()

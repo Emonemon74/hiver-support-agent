@@ -1,9 +1,9 @@
 """Intent classification.
 
-- `llm_classify`  : the headline classifier (gpt-oss-120b, JSON, few-shot).
-- `knn_classify`  : a simple, training-free baseline — nearest neighbours among a
-                    set of already-labelled examples (used in the eval harness
-                    with leave-one-out over the golden set).
+- `llm_classify`  : the headline classifier (gpt-oss, JSON, few-shot).
+- `knn_classify`  : training-free nearest-neighbour classifier for single messages
+                    (the eval harness uses the batched leave-one-out version in
+                    `src/eval/baselines.py::knn_loo`).
 """
 from __future__ import annotations
 

@@ -22,7 +22,9 @@ JUDGE_MODEL = os.getenv("JUDGE_MODEL", "qwen/qwen3.8-27b")
 # --- Embeddings: local sentence-transformers, no API key, deterministic ---
 EMBED_MODEL = os.getenv("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 
-BRAND = os.getenv("BRAND", "")
+# The project is committed to Delta (golden set, routing rubric, corrections are
+# all Delta-specific). Override in .env only to re-run profiling for another brand.
+BRAND = os.getenv("BRAND", "Delta")
 
 RAW_CSV = DATA / "twcs.csv"
 SEED = 13

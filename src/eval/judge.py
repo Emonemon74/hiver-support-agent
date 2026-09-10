@@ -14,8 +14,6 @@ to limit self-preference. Validated against human scores in judge_validation.py.
 """
 from __future__ import annotations
 
-import json
-
 import numpy as np
 
 from src.config import JUDGE_MODEL
