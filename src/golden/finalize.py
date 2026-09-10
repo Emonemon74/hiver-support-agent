@@ -1,8 +1,5 @@
-"""Phase 4c: turn the hand-reviewed CSV into the immutable golden set.
-
-Reads data/golden_review.csv (after a human has set `reviewed=True` and corrected
-intent / route / route_reason / difficulty), validates it, and writes
-data/golden.jsonl — the file every evaluation runs against.
+"""Phase 4c: apply the reviewer's decisions (src/golden/corrections.py) on top of
+the model pre-labels and write the immutable golden set data/golden.jsonl.
 
 Run: python -m src.golden.finalize
 """
@@ -13,49 +10,54 @@ import json
 import pandas as pd
 
 from src.config import DATA
+from src.golden.corrections import AMBIGUOUS, INTENT_FIX, REASONS, TRIGGER
 from src.intents import LABELS
-
-ROUTES = {"auto", "escalate"}
-DIFF = {"easy", "ambiguous"}
 
 
 def main() -> None:
-    df = pd.read_csv(DATA / "golden_review.csv")
+    pre = [json.loads(l) for l in (DATA / "golden_prelabel.jsonl").read_text().splitlines()]
+    ids = {r["thread_id"] for r in pre}
 
-    unreviewed = (~df.reviewed.astype(bool)).sum()
-    if unreviewed:
-        raise SystemExit(f"{unreviewed} rows still have reviewed=False — finish the review first")
+    missing = ids - set(TRIGGER)
+    assert not missing, f"{len(missing)} threads have no reviewer trigger: {sorted(missing)[:10]}"
 
-    bad_intent = set(df.intent) - set(LABELS)
-    bad_route = set(df.route) - ROUTES
-    bad_diff = set(df.difficulty) - DIFF
-    assert not bad_intent, f"unknown intents: {bad_intent}"
-    assert not bad_route, f"unknown routes: {bad_route}"
-    assert not bad_diff, f"unknown difficulty: {bad_diff}"
-    assert df.route_reason.str.len().min() > 5, "every row needs a route_reason"
+    rows = []
+    for r in pre:
+        tid = r["thread_id"]
+        code = TRIGGER[tid]
+        route = "escalate" if code.startswith("E-") else "auto"
+        intent = INTENT_FIX.get(tid, r["pred_intent"])
+        assert intent in LABELS, f"{tid}: bad intent {intent}"
+        rows.append({
+            "thread_id": tid,
+            "created_at": r["created_at"],
+            "customer_opening": r["customer_opening"],
+            "reference_reply": r["reference_reply"],
+            "intent": intent,
+            "route": route,
+            "route_trigger": code,
+            "route_reason": REASONS[code],
+            "difficulty": "ambiguous" if tid in AMBIGUOUS else "easy",
+        })
 
+    df = pd.DataFrame(rows).sort_values("created_at")
     out = DATA / "golden.jsonl"
     with out.open("w") as f:
-        for r in df.itertuples(index=False):
-            f.write(json.dumps({
-                "thread_id": int(r.thread_id),
-                "created_at": r.created_at,
-                "customer_opening": r.customer_opening,
-                "reference_reply": r.reference_reply,
-                "intent": r.intent,
-                "route": r.route,
-                "route_reason": r.route_reason,
-                "difficulty": r.difficulty,
-                "notes": "" if pd.isna(r.notes) else str(r.notes),
-            }) + "\n")
+        for _, r in df.iterrows():
+            f.write(json.dumps(r.to_dict()) + "\n")
 
-    print(f"wrote {out} — {len(df)} examples")
+    print(f"wrote {out} — {len(df)} examples\n")
     print("intent:\n", df.intent.value_counts().to_string())
     print("\nroute:", df.route.value_counts().to_dict())
     print("difficulty:", df.difficulty.value_counts().to_dict())
-    agree = (df.intent == df.pred_intent).mean()
-    r_agree = (df.route == df.pred_route).mean()
-    print(f"\npre-label vs final agreement — intent {agree:.1%}, route {r_agree:.1%}")
+    print("\nescalate triggers:\n",
+          df[df.route == "escalate"].route_trigger.value_counts().to_string())
+
+    pre_df = pd.DataFrame(pre)
+    m = df.merge(pre_df, on="thread_id")
+    print(f"\nreviewer vs model pre-label — "
+          f"intent kept {(m.intent == m.pred_intent).mean():.1%}, "
+          f"route kept {(m.route == m.pred_route).mean():.1%}")
 
 
 if __name__ == "__main__":

@@ -19,3 +19,4 @@ data/*
 
 # local caches
 data/.llm_cache/
+!data/golden_prelabel.jsonl

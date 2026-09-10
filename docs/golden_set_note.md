@@ -1,6 +1,12 @@
 # Golden evaluation set — how it was built
 
-**File:** `data/golden.jsonl` · **Size:** ~200 examples · **Brand:** @Delta
+**File:** `data/golden.jsonl` · **Size:** 199 examples · **Brand:** @Delta
+
+**Label distribution:** intent — compliment 43, complaint 41, flight_disruption 30,
+loyalty_miles 17, other 17, seat_upgrade 16, booking_reservation 14, baggage 14,
+checkin_boarding 7. Route — **auto 109 / escalate 90**. Difficulty — easy 171 /
+ambiguous 28. (`checkin_boarding` is thin — the recent holdout window is light on
+it; per-intent metrics for it are indicative only.)
 
 ## What each example contains
 
@@ -32,19 +38,34 @@
 ## Labelling
 
 - **Pre-labelling (`prelabel.py`):** `gpt-oss-120b` proposed `intent` + `route` +
-  reason for each row. This is a *time-saver only*.
-- **Human review:** every row was read and corrected in `golden_review.csv`
-  (`reviewed=True` per row). Pre-label→final agreement is reported by
-  `finalize.py` and in the report — where it is *low* the class is genuinely hard.
+  reason for each row. This is a *time-saver only* and is never treated as truth.
+- **Human review:** every row was read against the transcript and Delta's actual
+  reply; final decisions are encoded in `src/golden/corrections.py` (one route
+  trigger per row + intent overrides + ambiguity flags). `finalize.py` applies
+  them and reports how much the reviewer changed: **intent kept 99%, route kept
+  82%** — i.e. routing is where the model and a careful human diverge, and that
+  gap is itself a headline finding.
 - **Guidelines used:**
   - Intent = the customer's *primary* ask. Multi-intent tweets take the most
     actionable one; pure venting with no ask → `complaint`.
-  - `route=escalate` whenever a correct reply needs information the agent cannot
-    see (PNR, ticket status, bag tag), or money/compensation is at stake, or the
-    customer is angry enough to churn, or there's a safety/legal/medical angle.
-  - "Please DM us your confirmation number" counts as `auto` — it's the standard
-    safe holding reply and needs no account access.
-- **Consistency check:** ~20 examples were re-labelled blind a day later;
-  disagreements are listed in the report's failure section.
-- Single labeller (the author). This is the main threat to the headline number and
-  is called out explicitly in the report.
+  - `route=escalate` triggers (exactly one recorded per row in `route_trigger`):
+    `E-ACCOUNT` (needs PNR/ticket/bag-file lookup or a booking change),
+    `E-MONEY` (refund/credit/fee dispute), `E-SAFETY` (safety/medical/legal/
+    bereavement), `E-DISRUPTION` (active disruption, rebooking needed now),
+    `E-CHURN` (angry, going public / threatening to leave), `E-LIVEDATA`
+    (needs live flight status / schedule / seat availability).
+  - **"Please DM your confirmation number" is `escalate`, not `auto`.** The public
+    tweet is templated, but the actual resolution happens in a human-staffed DM
+    with account access. Counting these as `auto` (a defensible alternative
+    definition) would flip ~35 labels — this is called out in the report's
+    "what's misleading" section.
+  - `auto` = the agent can fully close the loop with a public reply: compliments
+    (thank + forward), general policy/info questions, feedback acknowledgement,
+    minor-delay acknowledgement.
+- **Consistency:** 28 rows are flagged `difficulty=ambiguous` — cases where a
+  second reasonable labeller could disagree (rhetorical policy rants, borderline
+  compliment/complaint, "minor delay" vs "active disruption"). Metrics are
+  reported both overall and on the `easy` slice.
+- **Single labeller** (the author), assisted by an LLM pre-pass. This is the main
+  threat to the headline number and is called out explicitly in the report; with
+  one more week the fix is a second independent labeller + Cohen's κ on the overlap.
