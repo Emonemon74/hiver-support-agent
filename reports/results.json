@@ -386,22 +386,22 @@
   },
   "routing": {
     "trivial_always_escalate": {
-      "accuracy": 0.45,
-      "escalate_precision": 0.45,
+      "accuracy": 0.48,
+      "escalate_precision": 0.48,
       "escalate_recall": 1.0,
-      "escalate_f1": 0.621,
+      "escalate_f1": 0.649,
       "false_auto_rate": 0.0,
       "over_escalation_rate": 1.0,
       "kappa": 0.0,
       "counts": {
-        "tp": 45,
-        "fp": 55,
+        "tp": 48,
+        "fp": 52,
         "fn": 0,
         "tn": 0
       }
     },
     "trivial_always_auto": {
-      "accuracy": 0.55,
+      "accuracy": 0.52,
       "escalate_precision": 0.0,
       "escalate_recall": 0.0,
       "escalate_f1": 0.0,
@@ -411,51 +411,51 @@
       "counts": {
         "tp": 0,
         "fp": 0,
-        "fn": 45,
-        "tn": 55
+        "fn": 48,
+        "tn": 52
       }
     },
     "simple_risk_rule_gold_intent": {
-      "accuracy": 0.6,
-      "escalate_precision": 0.558,
-      "escalate_recall": 0.533,
-      "escalate_f1": 0.545,
-      "false_auto_rate": 0.467,
-      "over_escalation_rate": 0.345,
-      "kappa": 0.189,
+      "accuracy": 0.63,
+      "escalate_precision": 0.628,
+      "escalate_recall": 0.562,
+      "escalate_f1": 0.593,
+      "false_auto_rate": 0.438,
+      "over_escalation_rate": 0.308,
+      "kappa": 0.256,
       "counts": {
-        "tp": 24,
-        "fp": 19,
+        "tp": 27,
+        "fp": 16,
         "fn": 21,
         "tn": 36
       }
     },
     "simple_risk_rule_pred_intent": {
-      "accuracy": 0.65,
-      "escalate_precision": 0.632,
-      "escalate_recall": 0.533,
-      "escalate_f1": 0.578,
-      "false_auto_rate": 0.467,
-      "over_escalation_rate": 0.255,
-      "kappa": 0.283,
+      "accuracy": 0.66,
+      "escalate_precision": 0.684,
+      "escalate_recall": 0.542,
+      "escalate_f1": 0.605,
+      "false_auto_rate": 0.458,
+      "over_escalation_rate": 0.231,
+      "kappa": 0.313,
       "counts": {
-        "tp": 24,
-        "fp": 14,
-        "fn": 21,
-        "tn": 41
+        "tp": 26,
+        "fp": 12,
+        "fn": 22,
+        "tn": 40
       }
     },
     "agent_router": {
-      "accuracy": 0.7,
-      "escalate_precision": 0.612,
-      "escalate_recall": 0.911,
-      "escalate_f1": 0.732,
-      "false_auto_rate": 0.089,
-      "over_escalation_rate": 0.473,
-      "kappa": 0.42,
+      "accuracy": 0.73,
+      "escalate_precision": 0.657,
+      "escalate_recall": 0.917,
+      "escalate_f1": 0.765,
+      "false_auto_rate": 0.083,
+      "over_escalation_rate": 0.442,
+      "kappa": 0.467,
       "counts": {
-        "tp": 41,
-        "fp": 26,
+        "tp": 44,
+        "fp": 23,
         "fn": 4,
         "tn": 29
       }

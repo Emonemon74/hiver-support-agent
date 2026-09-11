@@ -1,31 +1,31 @@
 {
   "agent_router_subsample_n": 100,
   "agent_router_subsample": {
-    "accuracy": 0.7,
-    "escalate_precision": 0.612,
-    "escalate_recall": 0.911,
-    "escalate_f1": 0.732,
-    "false_auto_rate": 0.089,
-    "over_escalation_rate": 0.473,
-    "kappa": 0.42,
+    "accuracy": 0.73,
+    "escalate_precision": 0.657,
+    "escalate_recall": 0.917,
+    "escalate_f1": 0.765,
+    "false_auto_rate": 0.083,
+    "over_escalation_rate": 0.442,
+    "kappa": 0.467,
     "counts": {
-      "tp": 41,
-      "fp": 26,
+      "tp": 44,
+      "fp": 23,
       "fn": 4,
       "tn": 29
     }
   },
   "rule_layer_gold_intent_all199": {
-    "accuracy": 0.714,
-    "escalate_precision": 0.622,
-    "escalate_recall": 0.933,
-    "escalate_f1": 0.747,
-    "false_auto_rate": 0.067,
-    "over_escalation_rate": 0.468,
-    "kappa": 0.446,
+    "accuracy": 0.754,
+    "escalate_precision": 0.681,
+    "escalate_recall": 0.939,
+    "escalate_f1": 0.79,
+    "false_auto_rate": 0.061,
+    "over_escalation_rate": 0.426,
+    "kappa": 0.51,
     "counts": {
-      "tp": 84,
-      "fp": 51,
+      "tp": 92,
+      "fp": 43,
       "fn": 6,
       "tn": 58
     }
