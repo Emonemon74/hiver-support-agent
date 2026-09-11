@@ -67,28 +67,36 @@ confused with `seat_upgrade` (3 of 7).
 |--------|----:|----------------:|---------------:|----------------:|
 | trivial — always escalate | 0.45 | 1.00 | **0.00** | 1.00 |
 | trivial — always auto | 0.55 | 0.00 | 1.00 | 0.00 |
-| simple — escalate if intent-risk = high (predicted intent) | 0.65 | 0.53 | 0.47 | 0.26 |
+| simple — escalate if intent-risk = high (predicted intent) | 0.66 | 0.54 | 0.46 | 0.23 |
 | agent router — first cut (commit `63840d0`) | 0.59 | 0.62 | 0.38 | 0.44 |
-| **agent router — current** | **0.70** | **0.91** | **0.089** | 0.47 |
+| **agent router — current** | **0.73** | **0.92** | **0.083** | 0.44 |
 
-**The first cut was the weak point** — it lost to the one-line rule (0.59 vs 0.65)
-and auto-sent 38% of should-escalates, because (a) `complaint` (medium-risk)
-defaulted to auto, and (b) the money regex was `charged?`, so "charging" never
-matched.
+**The first cut was the weak point** — it lost to the one-line rule and auto-sent
+38% of should-escalates, because (a) `complaint` (medium-risk) defaulted to auto,
+and (b) the money regex was `charged?`, so "charging" never matched.
 
 **The current router** fixes both: `checkin_boarding` joined the account-access
 intent set; `complaint`/`other` escalate when the message names a concrete
 personal incident (`E-INCIDENT` — a flight number, a staff role, "my seat/bag/
 flight", a time anchor) and otherwise stay auto; the money/disruption/live-data
-patterns were broadened. Result: **false-auto 0.38 → 0.09, escalate-recall
-0.62 → 0.91**, at the cost of a higher over-escalation rate (0.44 → 0.47).
+patterns were broadened, taking false-auto from 0.38 to 0.089. On top of that, a
+joint review of the golden set's 28 `ambiguous` rows flipped 8 routes
+`auto`→`escalate` (bereavement, stated churn, an explicit callback ask, and two
+status-specific cases where the agent had been shown to hallucinate — see
+`docs/golden_set_note.md`); 3 of the 8 fell in this 100-example eval, and the
+router had already called all 3 `escalate` — so the label fix *improves* the
+router's measured accuracy (0.70 → 0.73) and *lowers* its apparent
+over-escalation (0.47 → 0.44) without the router itself changing at all.
+Combined: **false-auto 0.38 → 0.083, escalate-recall 0.62 → 0.92**.
 
-**Caveat (see §6):** these rules were revised *after* inspecting the first cut's
-errors on this same 100, so 0.70 is optimistic. Independent check — the rule layer
-run with **gold** intent over all **199** golden examples: **acc 0.71, false-auto
-0.07, recall 0.93** (`reports/routing_v2.json`). Consistent, so the rules
-generalise rather than memorise the subsample. Both runs are reproduced offline by
-`make routing` (no new LLM spend beyond the cached upgrade check).
+**Caveat (see §6):** the rules were revised *after* inspecting the first cut's
+errors on this same 100, so 0.73 is optimistic — and part of that number is the
+golden labels catching up to the router (above), not the router improving.
+Independent check — the rule layer run with **gold** intent over all **199**
+golden examples: **acc 0.75, false-auto 0.06, recall 0.94**
+(`reports/routing_v2.json`). Consistent, so the rules do generalise. Both runs
+are reproduced offline by `make routing` (no new LLM spend beyond the cached
+upgrade check).
 
 ### 3c. Reply quality (LLM judge, 1–5)
 
@@ -135,7 +143,7 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
    gave my seat away and then I got attitude"*, *"why is Delta charging for a lap
    infant AND checked bags"* (the regex was `charged?`, so "charging" never
    matched), *"2 hours for a callback to change my flight tomorrow"*. The fix
-   (§3b) took false-auto to 9%. **Residual failure:** the current router
+   (§3b) took false-auto to 8.3%. **Residual failure:** the current router
    *over*-escalates ~47% of true `auto` messages — e.g. *"app won't let me log in,
    anyone else?"* (a status check) and *"First Class costs less than Coach,
    price-gouging?"* (an opinion) both trip `E-ACCOUNT`/`E-MONEY`. Keyword rules are
@@ -175,21 +183,27 @@ Landis–Koch "moderate"). Helpfulness is where it tracks the human worst
 
 ## 6. What is misleading about my headline number?
 
-- **The current routing accuracy (0.70) is tuned on the test set.** The rules were revised after
-  reading the first cut's errors on the same 100 examples. The gold-intent-on-199 check
-  (acc 0.71, false-auto 0.07) says the rules generalise, but a clean number needs a
-  fresh holdout the rules never saw.
+- **The current routing accuracy (0.73) is tuned on the test set — twice over.**
+  The rules were revised after reading the first cut's errors on this same 100,
+  and separately, 3 of the 8 ambiguous-row label flips (§3b) landed on threads in
+  this eval where the router already said `escalate` — so part of the 0.70→0.73
+  jump is the labels catching up to the router, not the router getting better.
+  The gold-intent-on-199 check (acc 0.75, false-auto 0.06) says the rules do
+  generalise, but a clean number needs a fresh holdout neither the rules nor the
+  labels were tuned against.
 - **Routing is partly self-graded.** The router's rules and the golden routing
   labels come from the same rubric and the same person. Read false-auto-rate and
-  the independent baselines, not raw accuracy — and note the router trades a 0.47
-  over-escalation rate for its low false-auto, i.e. it sends ~half of genuinely
+  the independent baselines, not raw accuracy — and note the router trades a 0.44
+  over-escalation rate for its low false-auto, i.e. it sends ~44% of genuinely
   safe traffic to humans.
 - **"DM your confirmation number" = escalate is my labelling call.** Flip it and
   ~35 golden labels move; the false-auto rate and "human load removed" figure
   change materially.
 - **Single labeller** for both the golden set and the judge-validation human
-  scores — there is no inter-annotator κ. 14 of the 100 eval rows are flagged
-  `ambiguous`; on the `easy` slice routing is only marginally better (0.73 vs 0.70).
+  scores — there is no inter-annotator κ. 28 of the 199 golden rows (14 of the
+  100 in this eval) are flagged `ambiguous`, and 8 of those 28 routes were
+  revised after the router was already built (previous bullet) — the labelling
+  process is not independent of the system it grades.
 - **Reference reply ≠ ground truth.** Delta's actual reply is often itself a
   templated "DM us"; scoring groundedness/helpfulness against it partly rewards
   imitating a deflection, and the verbatim-NN baseline looks artificially strong

@@ -4,9 +4,17 @@
 
 **Label distribution:** intent — compliment 43, complaint 41, flight_disruption 30,
 loyalty_miles 17, other 17, seat_upgrade 16, booking_reservation 14, baggage 14,
-checkin_boarding 7. Route — **auto 109 / escalate 90**. Difficulty — easy 171 /
+checkin_boarding 7. Route — **auto 101 / escalate 98**. Difficulty — easy 171 /
 ambiguous 28. (`checkin_boarding` is thin — the recent holdout window is light on
 it; per-intent metrics for it are indicative only.)
+
+**Revision (2026-09-11):** after a joint review of the 28 `ambiguous` rows, 8
+routes were flipped `auto`→`escalate` (the first pass under-called bereavement,
+stated churn, an explicit callback request, and two status-specific cases where
+the agent was later shown to hallucinate): thread ids `602877` (E-MONEY),
+`565486` (E-SAFETY), `579527` (E-CHURN), `603668` (E-SAFETY), `467628` (E-CHURN),
+`571406` (E-DISRUPTION), `563551` (E-ACCOUNT), `585243` (E-ACCOUNT). Route counts
+above are post-revision; see `src/golden/corrections.py` for the exact triggers.
 
 ## What each example contains
 
@@ -43,7 +51,8 @@ it; per-intent metrics for it are indicative only.)
   reply; final decisions are encoded in `src/golden/corrections.py` (one route
   trigger per row + intent overrides + ambiguity flags). `finalize.py` applies
   them and reports how much the reviewer changed: **intent kept 99%, route kept
-  82%** — i.e. routing is where the model and a careful human diverge, and that
+  79%** (after the ambiguous-row revision below) — i.e. routing is where the
+  model and a careful human diverge, and that
   gap is itself a headline finding.
 - **Guidelines used:**
   - Intent = the customer's *primary* ask. Multi-intent tweets take the most

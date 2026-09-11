@@ -50,9 +50,13 @@ Non-obvious choices and why. (Numbers filled from `reports/results.json`.)
    risk rule. v2 added `checkin_boarding` to the account-access set, made
    `complaint`/`other` escalate on a concrete-personal-incident signal
    (`E-INCIDENT`) rather than defaulting to auto, and broadened the money /
-   disruption / live-data patterns → false-auto 0.09, recall 0.91. Because this
-   was tuned on the eval subsample, it is re-checked with gold intent over all 199
-   (0.71 acc, 0.07 false-auto) — `reports/routing_v2.json`. The routing decision is
+   disruption / live-data patterns → false-auto 0.089, recall 0.91. A follow-up
+   review of the 28 ambiguous golden rows then flipped 8 routes auto->escalate;
+   3 fell in the eval subsample and the router already called them escalate, so
+   the final numbers (false-auto 0.083, recall 0.92, acc 0.73) partly reflect
+   labels catching up to the router, not just the router improving — flagged in
+   REPORT.md §6. Re-checked with gold intent over all 199 (0.75 acc, 0.06
+   false-auto) — `reports/routing_v2.json`. The routing decision is
    recomputed offline by `make routing` (`src/eval/rerun_routing.py`) without
    re-running the pipeline.
 
