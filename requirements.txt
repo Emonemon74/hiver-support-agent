@@ -20,6 +20,9 @@ scipy>=1.11
 # Data fetch
 kaggle>=1.6
 
+# Demo (demo/app.py)
+streamlit>=1.38
+
 # Dev
 pytest>=8
 ruff>=0.6

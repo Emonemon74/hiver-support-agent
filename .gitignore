@@ -14,6 +14,7 @@ data/*
 
 # Large build artifacts
 *.parquet
+!data/corpus.parquet
 *.faiss
 *.npy
 
